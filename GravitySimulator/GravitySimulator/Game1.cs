@@ -26,7 +26,7 @@ namespace GravitySimulator
         double timeStep = new double();
         double timeMax = new double();
         double time = new double();
-        double GravConst = new double();
+        double GravConst = 20;
         DVector3 distance = new DVector3();
         double distanceStep = new double();
 
@@ -53,7 +53,7 @@ namespace GravitySimulator
             timeMax = 500;
             timeStep = 1;
             distanceStep = 1;
-            maxV = 50;
+            maxV = 2;
             int particleNumber = new int();
             particleNumber = 2;
             double particleMass = new double();
@@ -64,14 +64,26 @@ namespace GravitySimulator
                 particle.position = new DVector3();
                 particle.velocity = new DVector3();
                 particle.mass = particleMass;
-                particle.position.x = (double)rand.Next(100, (int)maxSize);
-                particle.position.y = (double)rand.Next(100, (int)maxSize);
-                particle.position.z = (double)rand.Next(100, (int)maxSize);
+                /*particle.position.x = (double)rand.Next(10, (int)maxSize);
+                particle.position.y = (double)rand.Next(10, (int)maxSize);
+                particle.position.z = (double)rand.Next(10, (int)maxSize);
 
-                particle.velocity.x = (double)rand.Next(10, (int)maxV);
-                particle.velocity.y = (double)rand.Next(10, (int)maxV);
-                particle.velocity.z = (double)rand.Next(10, (int)maxV);
+                particle.velocity.x = (double)rand.Next(0, (int)maxV);
+                particle.velocity.y = (double)rand.Next(0, (int)maxV);
+                particle.velocity.z = (double)rand.Next(0, (int)maxV);*/
 
+                if(i == 0)
+                {
+                    particle.position.x = 350;
+                    particle.position.y = 350;
+                }
+                else
+                {
+                    particle.position.x = 350;
+                    particle.position.y = 300;
+
+                    particle.velocity.x = 1;
+                }
                 particles.Add(particle);
             }
                 base.Initialize();
@@ -113,12 +125,14 @@ namespace GravitySimulator
 
             foreach (Particle particle in particles)
             {
+                particle.drawVect = new Vector2((float)particle.position.x, (float)particle.position.y);
+                //Differentiate the gravitational potential field to find the force acting on the particle
                 DVector3 delta = new DVector3();
-                double potential = new double();
-                potential = PotentialField(particle.position);
+                double potential = PotentialField(particle.position);
                 delta.x = distanceStep;
                 delta.y = 0;
                 delta.z = 0;
+                //hard code conservation of energy into incrimental acceleration of particles
                 particle.GradV.x = (PotentialField(VectAdd(particle.position, delta)) - potential) / distanceStep;
                 delta.x = 0;
                 delta.y = distanceStep;
@@ -129,10 +143,8 @@ namespace GravitySimulator
                 particle.accelaration = VectMult(particle.GradV, -particle.mass * timeStep);
                 particle.velocity = VectAdd(particle.velocity, particle.accelaration);
                 particle.position = VectAdd(particle.position, VectMult(particle.velocity, timeStep));
-                
-            }
 
-            // TODO: Add your update logic here
+            }
 
             base.Update(gameTime);
         }
@@ -146,9 +158,7 @@ namespace GravitySimulator
             GraphicsDevice.Clear(Color.CornflowerBlue);
             foreach (Particle particle in particles)
             {
-                particle.drawVect = new Vector2();
-                particle.drawVect.X = (float)particle.position.x;
-                particle.drawVect.Y = (float)particle.position.y;
+
             }
             spriteBatch.Begin();
             foreach (Particle particle in particles)
@@ -161,6 +171,7 @@ namespace GravitySimulator
             base.Draw(gameTime);
         }
 
+        //methods used to simplify basic vector arithmitic
         DVector3 VectAdd(DVector3 vect1, DVector3 vect2)
         {
             DVector3 outVect = new DVector3();
@@ -173,12 +184,13 @@ namespace GravitySimulator
         DVector3 VectMult(DVector3 vect, double multiplier)
         {
             DVector3 outVect = new DVector3();
-            outVect.x = outVect.x * multiplier;
-            outVect.y = outVect.y * multiplier;
-            outVect.z = outVect.z * multiplier;
+            outVect.x = vect.x * multiplier;
+            outVect.y = vect.y * multiplier;
+            outVect.z = vect.z * multiplier;
             return outVect;
         }
 
+        //calculates the gravitiational potential of any given point in space
         double PotentialField(DVector3 position)
         {
             double potential = new double();
