@@ -1,0 +1,24 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GravitySimulator", "GravitySimulator\GravitySimulator\GravitySimulator.csproj", "{45EC0A38-7E5E-469C-A1D2-E1F9885B9022}"
+EndProject
+Project("{96E2B04D-8817-42C6-938A-82C39BA4D311}") = "GravitySimulatorContent", "GravitySimulator\GravitySimulatorContent\GravitySimulatorContent.contentproj", "{1675871B-CB7C-499D-B52F-B8B7A425AB84}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{45EC0A38-7E5E-469C-A1D2-E1F9885B9022}.Debug|x86.ActiveCfg = Debug|x86
+		{45EC0A38-7E5E-469C-A1D2-E1F9885B9022}.Debug|x86.Build.0 = Debug|x86
+		{45EC0A38-7E5E-469C-A1D2-E1F9885B9022}.Release|x86.ActiveCfg = Release|x86
+		{45EC0A38-7E5E-469C-A1D2-E1F9885B9022}.Release|x86.Build.0 = Release|x86
+		{1675871B-CB7C-499D-B52F-B8B7A425AB84}.Debug|x86.ActiveCfg = Debug|x86
+		{1675871B-CB7C-499D-B52F-B8B7A425AB84}.Release|x86.ActiveCfg = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
