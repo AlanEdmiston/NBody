@@ -8,6 +8,7 @@ using Microsoft.Xna.Framework.GamerServices;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
+using AE.AdvancedMaths;
 
 namespace GravitySimulator
 {
@@ -27,8 +28,9 @@ namespace GravitySimulator
         double timeMax = new double();
         double time = new double();
         double GravConst = 20;
-        DVector3 distance = new DVector3();
+        Vector3D distance = new Vector3D();
         double distanceStep = new double();
+        double restitution = 1;
 
         public Game1()
         {
@@ -55,35 +57,23 @@ namespace GravitySimulator
             distanceStep = 1;
             maxV = 2;
             int particleNumber = new int();
-            particleNumber = 2;
+            particleNumber = 200;
             double particleMass = new double();
             particleMass = 1;
             for (int i = 0; i < particleNumber; i++)
             {
                 Particle particle = new Particle();
-                particle.position = new DVector3();
-                particle.velocity = new DVector3();
+                particle.position = new Vector3D();
+                particle.velocity = new Vector3D();
                 particle.mass = particleMass;
-                /*particle.position.x = (double)rand.Next(10, (int)maxSize);
-                particle.position.y = (double)rand.Next(10, (int)maxSize);
-                particle.position.z = (double)rand.Next(10, (int)maxSize);
+                particle.position.x = rand.Next(10, (int)maxSize);
+                particle.position.y = rand.Next(10, (int)maxSize);
+                particle.position.z = rand.Next(10, (int)maxSize);
 
-                particle.velocity.x = (double)rand.Next(0, (int)maxV);
-                particle.velocity.y = (double)rand.Next(0, (int)maxV);
-                particle.velocity.z = (double)rand.Next(0, (int)maxV);*/
+                particle.velocity.x = rand.Next(-(int)maxV, (int)maxV);
+                particle.velocity.y = rand.Next(-(int)maxV, (int)maxV);
+                particle.velocity.z = rand.Next(-(int)maxV, (int)maxV);
 
-                if(i == 0)
-                {
-                    particle.position.x = 350;
-                    particle.position.y = 350;
-                }
-                else
-                {
-                    particle.position.x = 350;
-                    particle.position.y = 300;
-
-                    particle.velocity.x = 1;
-                }
                 particles.Add(particle);
             }
                 base.Initialize();
@@ -127,22 +117,22 @@ namespace GravitySimulator
             {
                 particle.drawVect = new Vector2((float)particle.position.x, (float)particle.position.y);
                 //Differentiate the gravitational potential field to find the force acting on the particle
-                DVector3 delta = new DVector3();
+                Vector3D delta = new Vector3D();
                 double potential = PotentialField(particle.position);
                 delta.x = distanceStep;
                 delta.y = 0;
                 delta.z = 0;
                 //hard code conservation of energy into incrimental acceleration of particles
-                particle.GradV.x = (PotentialField(VectAdd(particle.position, delta)) - potential) / distanceStep;
+                particle.GradV.x = (PotentialField(particle.position + delta) - potential) / distanceStep;
                 delta.x = 0;
                 delta.y = distanceStep;
-                particle.GradV.y = PotentialField(VectAdd(particle.position, delta)) - potential / distanceStep;
+                particle.GradV.y = PotentialField(particle.position + delta) - potential / distanceStep;
                 delta.y = 0;
                 delta.z = distanceStep;
-                particle.GradV.z = PotentialField(VectAdd(particle.position, delta)) - potential / distanceStep;
-                particle.accelaration = VectMult(particle.GradV, -particle.mass * timeStep);
-                particle.velocity = VectAdd(particle.velocity, particle.accelaration);
-                particle.position = VectAdd(particle.position, VectMult(particle.velocity, timeStep));
+                particle.GradV.z = PotentialField(particle.position + delta) - potential / distanceStep;
+                particle.accelaration = particle.GradV * -particle.mass * timeStep;
+                particle.velocity = particle.velocity + particle.accelaration;
+                particle.position = particle.position + particle.velocity * timeStep;
 
             }
 
@@ -171,39 +161,45 @@ namespace GravitySimulator
             base.Draw(gameTime);
         }
 
-        //methods used to simplify basic vector arithmitic
-        DVector3 VectAdd(DVector3 vect1, DVector3 vect2)
-        {
-            DVector3 outVect = new DVector3();
-            outVect.x = vect1.x + vect2.x;
-            outVect.y = vect1.y + vect2.y;
-            outVect.z = vect1.z + vect2.z;
-            return outVect;
-        }
-
-        DVector3 VectMult(DVector3 vect, double multiplier)
-        {
-            DVector3 outVect = new DVector3();
-            outVect.x = vect.x * multiplier;
-            outVect.y = vect.y * multiplier;
-            outVect.z = vect.z * multiplier;
-            return outVect;
-        }
-
         //calculates the gravitiational potential of any given point in space
-        double PotentialField(DVector3 position)
+        double PotentialField(Vector3D position)
         {
             double potential = new double();
             double dist;
             foreach (Particle particle in particles)
             {
-                dist = VectAdd(particle.position, VectMult(position, -1)).mod;
+                dist = (particle.position - position).Mod;
                 if (dist > 2 * distanceStep)
                 {
                     potential -= particle.mass * GravConst / dist;
                 }
             }
             return potential;
+        }
+
+        //calculates the change in velocity of two particles due to a collision with each other
+        void collision(Particle particle1, Particle particle2)
+        {
+            Vector3D relativeVelocity = particle1.velocity - particle2.velocity;
+            Vector3D positionUnitVector = particle1.position - particle2.position;
+            positionUnitVector = positionUnitVector / Vector3D.Mod(positionUnitVector);
+            //seperate velocity into radial and tangential components
+            double radial, radial1, radial2;
+            Vector3D tangential;
+            radial = DotProduct(relativeVelocity, positionUnitVector);
+            tangential = CrossProduct(relativeVelocity, positionUnitVector);
+            if (radial > 0)//check for colliding multiple times
+            {
+                //use conservation of momentum and coefficient of restitution to determine velocity changes
+                //m1v1+m2v2=m1v1'+m2v2'
+                //e(v1-v2)=v2'-v1'
+                radial1 = DotProduct(particle1.velocity, positionUnitVector);   //v1
+                radial2 = -DotProduct(particle2.velocity, positionUnitVector);  //v2
+
+                radial1 += (particle2.mass / particle1.mass) * radial2;
+                radial2 = radial1 * (restitution + 1) - radial2 * (particle2.mass / particle1.mass + restitution);  //v2'
+                radial1 -= (particle2.mass / particle1.mass) * radial2;  //v1'
+            }
         }
     }
 }
