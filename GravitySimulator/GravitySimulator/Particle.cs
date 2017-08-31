@@ -3,16 +3,26 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
+using AE.AdvancedMaths;
 
 namespace GravitySimulator
 {
     class Particle
     {
-        public double mass;
-        public DVector3 position;
-        public DVector3 velocity;
-        public DVector3 accelaration;
-        public DVector3 GradV = new DVector3();
+        //public bool HasCollided;
+        public double mass, radius, restitustionCoeff, frictionCeoff, adhesion, stiffness, heat;
+        public double Hamiltonian;
+        public double energy
+        {
+            get
+            {
+                return heat + Hamiltonian;
+            }
+        }
+        public Vector3D position;
+        public Vector3D velocity;
+        public Vector3D accelaration;
+        public Vector3D GradV = new Vector3D();
         public Vector2 drawVect = new Vector2();
     }
 }
