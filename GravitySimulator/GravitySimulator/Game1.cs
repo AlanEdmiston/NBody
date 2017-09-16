@@ -20,8 +20,11 @@ namespace GravitySimulator
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
         Texture2D particleSprite;
+        bool superPosition, hasRefreshed;
+
+        Random rand = new Random();
+
         //TODO: thread stuff
-        int height;
 
         List<Particle> particles = new List<Particle>();
         double timeStep = new double();
@@ -30,14 +33,20 @@ namespace GravitySimulator
         double ThickSurfaceApprox = 1;  //approximkate the surface of a particle to be a thick shell of this for use with contact forces
         double GravConst = 20;
         Vector3D distance = new Vector3D();
+        Vector3D deltaA = new Vector3D();
         double distanceStep = new double();
-        double restitution = 1;
+        double restitution = 0.8;
+        double totalEnergy;
+        Vector3D totalMomentum;
 
-        bool InstantCollisionApproximation = true;
+        SpriteFont font;
+        Vector2 fontVector = new Vector2 { X = 600, Y = 100 };
+        string energyString;
 
         public Game1()
         {
             graphics = new GraphicsDeviceManager(this);
+            //graphics.IsFullScreen = true;
             Content.RootDirectory = "Content";
         }
 
@@ -49,42 +58,29 @@ namespace GravitySimulator
         /// </summary>
         protected override void Initialize()
         {
-            // TODO: Add your initialization logic here
-
-            Random rand = new Random();
+            
             double maxSize = new double();
             double maxV = new double();
             double particleRadius = 10;
-            maxSize = 300;
+            maxSize = 100;
             timeMax = 500;
             timeStep = 0.1;
-            distanceStep = 1;
+            distanceStep = 0.1;
             maxV = 0;
-            int particleNumber = new int();
-            particleNumber = 2;
+            int particleNumber = 100;
             double particleMass = new double();
             particleMass = 1;
-            for (int i = 0; i < particleNumber; i++)
-            {
-                Particle particle = new Particle();
-                particle.position = new Vector3D();
-                particle.velocity = new Vector3D();
-                particle.mass = particleMass;
-                particle.radius = particleRadius;
-                particle.position.x = rand.Next(100, (int)maxSize + 100);
-                particle.position.y = rand.Next(100, (int)maxSize + 100);
-                particle.position.z = 0;// rand.Next(100, (int)maxSize + 100);
 
-                particle.velocity.x = 0;// rand.Next(-(int)maxV, (int)maxV);
-                particle.velocity.y = 0;// rand.Next(-(int)maxV, (int)maxV);
-                particle.velocity.z = 0;// rand.Next(-(int)maxV, (int)maxV);
+            Vector3D clump1Velocity = new Vector3D { x = 20, y = 0, z = 0 };
+            Vector3D clump1AngularP = new Vector3D();
+            Vector3D clump1Position = new Vector3D { x = 0, y = 200, z = 0 };
 
-                particles.Add(particle);
-            }
-            foreach(Particle particle in particles)
-            {
-                particle.Hamiltonian = Math.Pow(particle.velocity.Mod, 2) + PotentialField(particle.position);
-            }
+            Vector3D clump2Velocity = new Vector3D { x = -20, y = 5, z = 0 };
+            Vector3D clump2AngularP = new Vector3D();
+            Vector3D clump2Position = new Vector3D { x = 700, y = 200, z = 0 };
+
+            ClumpCreator(300, 10, 200, clump1Position, 1, clump1Velocity, clump1AngularP);
+            ClumpCreator(300, 10, 200, clump2Position, 1, clump2Velocity, clump2AngularP);
 
             // TODO: add different initialization set ups rubble piles, star mass/radius distributions etc. Perhaps add initialization project
 
@@ -101,6 +97,7 @@ namespace GravitySimulator
             spriteBatch = new SpriteBatch(GraphicsDevice);
 
             particleSprite = this.Content.Load<Texture2D>("particle");
+            font = Content.Load<SpriteFont>("SpriteFont1");
 
             // TODO: use this.Content to load your game content here
         }
@@ -125,39 +122,22 @@ namespace GravitySimulator
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
                 this.Exit();
 
-            foreach (Particle particle in particles)
-            {
-                particle.drawVect = new Vector2((float)particle.position.x, (float)particle.position.y);
-                //Differentiate the gravitational potential field to find the force acting on the particle
-                Vector3D delta = new Vector3D();
-                double potential = PotentialField(particle.position);
-                delta.x = distanceStep;
-                delta.y = 0;
-                delta.z = 0;
-                //TODO: hard code conservation of energy into incrimental acceleration of particles
-                particle.GradV.x = (PotentialField(particle.position + delta) - PotentialField(particle.position - delta)) / (distanceStep * 2);
-                delta.x = 0;
-                delta.y = distanceStep;
-                particle.GradV.y = (PotentialField(particle.position + delta) - PotentialField(particle.position - delta)) / (distanceStep * 2);
-                delta.y = 0;
-                delta.z = distanceStep;
-                particle.GradV.z = (PotentialField(particle.position + delta) - PotentialField(particle.position - delta)) / (distanceStep * 2);
-                particle.accelaration = -1 * particle.GradV / particle.mass;
-                particle.velocity += timeStep * particle.accelaration;
-                particle.position += timeStep * particle.velocity;
+            totalEnergy = 0;
+            totalMomentum = new Vector3D { x = 0, y = 0, z = 0 };
 
-                foreach (Particle particle2 in particles)
-                {
-                    if(particle != particle2 && (particle2.position - particle.position).Mod <= particle.radius + particle2.radius && Vector3D.DotProduct(particle.position - particle2.position, particle.velocity - particle2.velocity) / (particle.position - particle2.position).Mod < 0)
-                    {
-                        collision(particle, particle2);
-                    }
-                }
-                //TODO: test for fast particles tunnelling through each other
-                //TODO: contact forces
-                //TODO: dissipative forces
-                //TODO: add computationally quick code for stable multi-particle objects/ bluk behaviour approximations and annalytical solutions
+            foreach (object particle in particles)
+            {
+                System.Threading.ThreadPool.QueueUserWorkItem(new System.Threading.WaitCallback(ParticleComputer), particle);
             }
+
+            foreach(Particle particle in particles)
+            {
+                particle.position += timeStep * particle.velocity - Math.Pow(timeStep, 2) * particle.GradV / 2;
+            }
+
+            totalMomentum.x = Math.Round(totalMomentum.x, 2);
+            totalMomentum.y = Math.Round(totalMomentum.y, 2);
+            totalMomentum.z = Math.Round(totalMomentum.z, 2);
 
             base.Update(gameTime);
         }
@@ -175,6 +155,8 @@ namespace GravitySimulator
                 spriteBatch.Draw(particleSprite, particle.drawVect, Color.White);
             }
 
+            spriteBatch.DrawString(font, totalMomentum.ToString(), fontVector, Color.Red);
+            hasRefreshed = true;
             spriteBatch.End();
 
             base.Draw(gameTime);
@@ -188,9 +170,9 @@ namespace GravitySimulator
             foreach (Particle particle in particles)
             {
                 dist = (particle.position - position).Mod;
-                if (dist > 2 * distanceStep)
+                if (dist > particle.radius)
                 {
-                    potential -= particle.mass * GravConst / dist;
+                    potential -= GravConst / dist;
                 }
             }
             return potential;
@@ -212,8 +194,85 @@ namespace GravitySimulator
             particle1.velocity += (v1New - v1) * radial;
             particle2.velocity += (v2New - v2) * radial;
 
-            particle1.Hamiltonian = Math.Pow(particle1.velocity.Mod, 2) + PotentialField(particle1.position);
-            particle2.Hamiltonian = Math.Pow(particle2.velocity.Mod, 2) + PotentialField(particle2.position);
+            particle1.Hamiltonian = Math.Pow(particle1.velocity.Mod, 2) / 2 + PotentialField(particle1.position);
+            particle2.Hamiltonian = Math.Pow(particle2.velocity.Mod, 2) / 2 + PotentialField(particle2.position);
+        }
+        void ClumpCreator(int particleNumber, double particleRadius, int regionSize, Vector3D position, double particleMass, Vector3D velocity, Vector3D angularMomentum)
+        {
+            for (int i = 0; i < particleNumber; i++)
+            {
+                Particle particle = new Particle();
+                particle.position = new Vector3D();
+                particle.velocity = new Vector3D();
+                particle.mass = particleMass;
+                particle.radius = particleRadius;
+                do
+                {
+                    superPosition = false;
+                    particle.position.x = rand.Next((int)position.x, (int)(regionSize + position.x));
+                    particle.position.y = rand.Next((int)position.y, (int)(regionSize + position.y));
+                    particle.position.z = rand.Next((int)position.z, (int)(regionSize + position.z));
+                    foreach (Particle otherParticle in particles)
+                    {
+                        if ((otherParticle.position - particle.position).Mod < particle.radius + otherParticle.radius)
+                        {
+                            superPosition = true;
+                            break;
+                        }
+                    }
+                }
+                while (superPosition == true);
+
+                particle.velocity = velocity; ;
+                particles.Add(particle);
+            }
+            foreach (Particle particle in particles)
+            {
+                particle.Hamiltonian = Math.Pow(particle.velocity.Mod, 2) + PotentialField(particle.position);
+            }
+        }
+
+        void ParticleComputer(object oparticle)
+        {
+            Particle particle = (Particle)oparticle;
+            particle.drawVect = new Vector2((float)particle.position.x, (float)particle.position.y);
+            //Differentiate the gravitational potential field to find the force acting on the particle
+            Vector3D delta = new Vector3D();
+            double potential = PotentialField(particle.position);
+            delta.x = distanceStep;
+            delta.y = 0;
+            delta.z = 0;
+            //TODO: hard code conservation of energy into incrimental acceleration of particles
+            particle.GradV.x = (PotentialField(particle.position + delta) - PotentialField(particle.position - delta)) / (distanceStep * 2);
+            delta.x = 0;
+            delta.y = distanceStep;
+            particle.GradV.y = (PotentialField(particle.position + delta) - PotentialField(particle.position - delta)) / (distanceStep * 2);
+            delta.y = 0;
+            delta.z = distanceStep;
+            particle.GradV.z = (PotentialField(particle.position + delta) - PotentialField(particle.position - delta)) / (distanceStep * 2);
+            particle.accelaration = -1 * particle.GradV;
+            //set change in kinetic energy to -change in potential energy to conserve hamiltonian
+
+            //particle.position += Math.Pow(timeStep, 3) / 6 * deltaA;
+            particle.velocity += (particle.accelaration - timeStep * particle.GradV) / 2;
+            superPosition = false;
+            foreach (Particle particle2 in particles)
+            {
+                if (particle != particle2 && (particle2.position - particle.position).Mod <= particle.radius + particle2.radius)
+                {
+                    if (Vector3D.DotProduct(particle.position - particle2.position, particle.velocity - particle2.velocity) / (particle.position - particle2.position).Mod < 0)
+                    {
+                        collision(particle, particle2);
+                    }
+                }
+            }
+
+            totalEnergy += particle.energy;
+            totalMomentum += particle.mass * particle.velocity;
+            //TODO: test for fast particles tunnelling through each other
+            //TODO: contact forces
+            //TODO: dissipative forces
+            //TODO: add computationally quick code for stable multi-particle objects/ bluk behaviour approximations and annalytical solutions
         }
     }
 }

@@ -16,12 +16,12 @@ namespace GravitySimulator
         {
             get
             {
-                return heat + Hamiltonian;
+                return heat + Hamiltonian * mass;
             }
         }
-        public Vector3D position;
-        public Vector3D velocity;
-        public Vector3D accelaration;
+        public Vector3D position = new Vector3D();
+        public Vector3D velocity = new Vector3D();
+        public Vector3D accelaration = new Vector3D();
         public Vector3D GradV = new Vector3D();
         public Vector2 drawVect = new Vector2();
     }
